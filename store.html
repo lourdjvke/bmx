@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Thread & Co - Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: { dark: '#11111a', card: '#1c1c28', accent: '#7c3aed', accentLight: '#a78bfa' },
+            flat: { bg: '#f4f5f7', surface: '#ffffff', text: '#334155' }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f4f5f7; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .slide-up { transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    .slide-up.active { transform: translateY(0); }
+    
+    .slide-left { transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    .slide-left.active { transform: translateX(0); }
+
+    .overlay { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    .overlay.active { opacity: 1; pointer-events: auto; }
+  </style>
+</head>
+<body class="text-flat-text min-h-screen p-2 md:p-6 lg:p-8 flex flex-col">
+
+  <header class="bg-brand-dark rounded-t-3xl md:rounded-[2rem] p-4 md:p-8 text-white shadow-xl flex-shrink-0 relative z-10">
+    <!-- Top Nav -->
+    <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-3 w-full md:w-auto">
+        <div class="h-10 w-10 bg-brand-accent rounded-xl flex items-center justify-center text-xl shadow-lg shadow-brand-accent/30">
+          <i class="fa-solid fa-shirt"></i>
+        </div>
+        <h1 class="text-xl font-bold tracking-wide">Thread & Co</h1>
+      </div>
+      
+      <nav class="flex space-x-1 md:space-x-2 bg-[#1c1c28] p-1.5 rounded-full overflow-x-auto w-full md:w-auto no-scrollbar">
+        <button onclick="switchTab('orders')" id="tab-orders" class="px-5 py-2 text-sm font-medium rounded-full bg-brand-accent text-white transition whitespace-nowrap">Orders</button>
+        <button onclick="switchTab('products')" id="tab-products" class="px-5 py-2 text-sm font-medium rounded-full text-gray-400 hover:text-white transition whitespace-nowrap">Inventory</button>
+      </nav>
+
+      <div class="hidden md:flex items-center space-x-4">
+        <button class="w-10 h-10 rounded-full bg-[#1c1c28] hover:bg-gray-700 transition flex items-center justify-center"><i class="fa-solid fa-search"></i></button>
+        <button onclick="initGitDB()" class="px-4 h-10 rounded-full bg-[#1c1c28] hover:bg-gray-700 transition flex items-center justify-center text-sm font-medium border border-gray-700" title="Initialize Repo">
+          <i class="fa-brands fa-github mr-2"></i> Init Repo
+        </button>
+        <img src="https://i.pravatar.cc/150?u=admin" class="w-10 h-10 rounded-full border-2 border-brand-accent" alt="Profile">
+      </div>
+    </div>
+
+    <!-- Stats Area -->
+    <div class="mt-8 md:mt-12">
+      <h2 id="view-title" class="text-2xl md:text-3xl font-bold mb-6">Orders Management</h2>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4" id="stats-container">
+        <!-- Stats populated by JS -->
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 flex flex-col lg:flex-row gap-6 mt-6 md:mt-8 px-2 md:px-4">
+    <!-- Left Sidebar Filters -->
+    <aside class="w-full lg:w-64 flex-shrink-0 space-y-6">
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-gray-800">Filters</h3>
+          <button onclick="loadData()" class="text-xs text-brand-accent hover:underline flex items-center"><i class="fa-solid fa-rotate-right mr-1"></i> Refresh</button>
+        </div>
+        
+        <div id="filter-orders" class="space-y-4">
+          <div class="space-y-2">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Order Status</p>
+            <label class="flex items-center space-x-3 cursor-pointer group">
+              <input type="checkbox" checked class="form-checkbox text-brand-accent rounded border-gray-300 w-4 h-4 focus:ring-brand-accent">
+              <span class="text-sm text-gray-700 group-hover:text-black">New</span>
+            </label>
+            <label class="flex items-center space-x-3 cursor-pointer group">
+              <input type="checkbox" checked class="form-checkbox text-brand-accent rounded border-gray-300 w-4 h-4 focus:ring-brand-accent">
+              <span class="text-sm text-gray-700 group-hover:text-black">Processing</span>
+            </label>
+            <label class="flex items-center space-x-3 cursor-pointer group">
+              <input type="checkbox" checked class="form-checkbox text-brand-accent rounded border-gray-300 w-4 h-4 focus:ring-brand-accent">
+              <span class="text-sm text-gray-700 group-hover:text-black">Shipped</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="filter-products" class="space-y-4 hidden">
+          <button onclick="openProductModal()" class="w-full bg-brand-accent hover:bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-medium transition flex items-center justify-center shadow-md shadow-brand-accent/20">
+            <i class="fa-solid fa-plus mr-2"></i> Add Product
+          </button>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- Right Content Grid -->
+    <div class="flex-1 relative min-h-[400px]">
+      <div id="loading-spinner" class="absolute inset-0 flex items-center justify-center bg-flat-bg z-10">
+        <i class="fa-solid fa-circle-notch fa-spin text-4xl text-brand-accent"></i>
+      </div>
+      <div id="content-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 pb-20 md:pb-0">
+        <!-- Cards injected via JS -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Overlay -->
+  <div id="modal-overlay" class="fixed inset-0 bg-brand-dark/60 backdrop-blur-sm overlay z-40" onclick="closeModals()"></div>
+
+  <!-- Add Product Modal (Desktop Center, Mobile Bottom Sheet) -->
+  <div id="product-modal" class="fixed inset-x-0 bottom-0 sm:inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
+    <div class="slide-up sm:slide-left w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden pointer-events-auto flex flex-col max-h-[90vh]">
+      <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
+        <h3 class="font-bold text-lg text-gray-800">Add New Product</h3>
+        <button onclick="closeModals()" class="h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition"><i class="fa-solid fa-times"></i></button>
+      </div>
+      
+      <div class="p-6 overflow-y-auto">
+        <form id="product-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Product Name</label>
+            <input type="text" id="p-name" required class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent outline-none transition">
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Price ($)</label>
+              <input type="number" id="p-price" step="0.01" required class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-accent/20 outline-none transition">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Stock</label>
+              <input type="number" id="p-stock" required class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-accent/20 outline-none transition">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Product Image</label>
+            <label for="p-image" class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-200 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition relative overflow-hidden group">
+              <div class="flex flex-col items-center justify-center pt-5 pb-6 text-gray-400 group-hover:text-brand-accent transition z-10" id="p-image-placeholder">
+                <i class="fa-solid fa-cloud-arrow-up text-2xl mb-2"></i>
+                <p class="text-xs font-medium">Click to upload image</p>
+              </div>
+              <img id="p-image-preview" class="absolute inset-0 w-full h-full object-cover hidden z-0 opacity-50">
+              <input id="p-image" type="file" accept="image/*" class="hidden" />
+            </label>
+          </div>
+          
+          <button type="submit" id="p-submit-btn" class="w-full mt-4 bg-brand-dark text-white font-medium py-3 rounded-xl hover:bg-gray-800 transition flex items-center justify-center">
+            <span id="p-btn-text">Save Product</span>
+            <i id="p-btn-spin" class="fa-solid fa-circle-notch fa-spin ml-2 hidden"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="message-modal" class="fixed inset-x-0 bottom-0 sm:inset-0 z-50 flex items-end sm:justify-end pointer-events-none">
+    <div class="slide-left w-full sm:w-96 bg-white sm:h-full rounded-t-3xl sm:rounded-none shadow-2xl overflow-hidden pointer-events-auto flex flex-col max-h-[85vh]">
+      <div class="px-6 py-5 border-b border-gray-100 bg-brand-dark text-white flex justify-between items-center shrink-0">
+        <div>
+          <h3 class="font-bold text-lg">Message Customer</h3>
+          <p id="msg-order-id" class="text-xs text-gray-400">Order #---</p>
+        </div>
+        <button onclick="closeModals()" class="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
+      </div>
+      
+      <div class="p-6 overflow-y-auto flex-1">
+        <form id="message-form" class="space-y-4 flex flex-col h-full">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">To</label>
+            <input type="email" id="msg-to" readonly class="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-600 outline-none cursor-not-allowed">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Subject</label>
+            <input type="text" id="msg-subject" required class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-accent/20 outline-none transition" value="Update on your Thread & Co order">
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Message</label>
+            <textarea id="msg-body" required rows="6" class="w-full h-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-accent/20 outline-none transition resize-none placeholder-gray-400" placeholder="Type your message here..."></textarea>
+          </div>
+          
+          <button type="submit" id="msg-submit-btn" class="w-full mt-auto bg-brand-accent text-white font-medium py-3 rounded-xl hover:bg-indigo-600 transition flex items-center justify-center shadow-lg shadow-brand-accent/30">
+            <i class="fa-solid fa-paper-plane mr-2"></i> <span id="msg-btn-text">Send Message</span>
+            <i id="msg-btn-spin" class="fa-solid fa-circle-notch fa-spin ml-2 hidden"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://storage.breacher.name.ng/sdk.js";
+
+    const config = {
+      workerUrl: "https://storage.breacher.name.ng",
+      uid: "wiCdOyoCFGPeVrMsbmgXAV0wAm12",
+      repo: "app-db" 
+    };
+
+    const app = initializeApp(config);
+    window.app = app; // Expose for debugging
+
+    // Global State
+    let currentView = 'orders';
+    let orders = [];
+    let products = [];
+    let selectedImageFile = null;
+
+    // DOM Elements
+    const grid = document.getElementById('content-grid');
+    const spinner = document.getElementById('loading-spinner');
+    const statsContainer = document.getElementById('stats-container');
+    const viewTitle = document.getElementById('view-title');
+    
+    // Modal Elements
+    const overlay = document.getElementById('modal-overlay');
+    const productModal = document.getElementById('product-modal');
+    const messageModal = document.getElementById('message-modal');
+
+    // Make functions globally available for inline onclick attributes
+    window.switchTab = (tab) => {
+      currentView = tab;
+      
+      // Update Tab Styles
+      document.getElementById('tab-orders').className = tab === 'orders' ? 'px-5 py-2 text-sm font-medium rounded-full bg-brand-accent text-white transition whitespace-nowrap' : 'px-5 py-2 text-sm font-medium rounded-full text-gray-400 hover:text-white transition whitespace-nowrap';
+      document.getElementById('tab-products').className = tab === 'products' ? 'px-5 py-2 text-sm font-medium rounded-full bg-brand-accent text-white transition whitespace-nowrap' : 'px-5 py-2 text-sm font-medium rounded-full text-gray-400 hover:text-white transition whitespace-nowrap';
+      
+      // Update Sidebar Filters
+      document.getElementById('filter-orders').classList.toggle('hidden', tab !== 'orders');
+      document.getElementById('filter-products').classList.toggle('hidden', tab !== 'products');
+      
+      viewTitle.textContent = tab === 'orders' ? 'Orders Management' : 'Inventory Management';
+      renderGrid();
+      renderStats();
+    };
+
+    window.openProductModal = () => {
+      overlay.classList.add('active');
+      productModal.firstElementChild.classList.add('active');
+    };
+
+    window.openMessageModal = (email, orderId) => {
+      document.getElementById('msg-to').value = email;
+      document.getElementById('msg-order-id').textContent = 'Order #' + orderId;
+      overlay.classList.add('active');
+      messageModal.firstElementChild.classList.add('active');
+    };
+
+    window.closeModals = () => {
+      overlay.classList.remove('active');
+      productModal.firstElementChild.classList.remove('active');
+      messageModal.firstElementChild.classList.remove('active');
+      // Reset form
+      document.getElementById('product-form').reset();
+      clearImageSelection();
+    };
+
+    window.initGitDB = async () => {
+      try {
+        alert("Initializing repository on GitHub...");
+        const res = await app.initRepo();
+        alert(res.message);
+      } catch(e) {
+        alert("Init failed: " + e.message);
+      }
+    };
+
+    window.loadData = async () => {
+      spinner.classList.remove('hidden');
+      grid.innerHTML = '';
+      try {
+        // Fetch products and orders concurrently, append timestamp to bypass cache
+        const [prodRes, ordRes] = await Promise.all([
+          app.list("products", { _: Date.now() }).catch(() => ({documents: []})),
+          app.list("orders", { sort: "createdAt:desc", _: Date.now() }).catch(() => ({documents: []}))
+        ]);
+        
+        products = prodRes.documents || [];
+        orders = ordRes.documents || [];
+        
+        renderGrid();
+        renderStats();
+      } catch (err) {
+        console.error("Error loading data:", err);
+        grid.innerHTML = `<div class="col-span-full text-center py-10 text-red-500">Failed to load data. Ensure repository is initialized.</div>`;
+      } finally {
+        spinner.classList.add('hidden');
+      }
+    };
+
+    function renderStats() {
+      statsContainer.innerHTML = '';
+      if (currentView === 'orders') {
+        const newOrders = orders.filter(o => o.status === 'New' || !o.status).length;
+        const processing = orders.filter(o => o.status === 'Processing').length;
+        const stats = [
+          { label: 'New orders', val: newOrders, icon: 'fa-bell text-brand-accentLight' },
+          { label: 'On progress', val: processing, icon: 'fa-truck-fast text-orange-400' },
+          { label: 'Total Revenue', val: '$' + orders.reduce((sum, o) => sum + (o.total || 0), 0).toFixed(2), icon: 'fa-chart-line text-emerald-400' },
+          { label: 'Cancelled', val: '0', icon: 'fa-circle-xmark text-pink-500' }
+        ];
+        stats.forEach((s, i) => {
+          statsContainer.innerHTML += `
+            <div class="bg-brand-card rounded-2xl p-4 md:p-5 border border-white/5 flex flex-col justify-between fade-in" style="animation-delay: ${i*0.05}s">
+              <p class="text-gray-400 text-xs font-medium mb-2">${s.label}</p>
+              <div class="flex justify-between items-end">
+                <h3 class="text-2xl md:text-3xl font-bold text-white">${s.val}</h3>
+                <i class="fa-solid ${s.icon} text-xl md:text-2xl opacity-80"></i>
+              </div>
+            </div>`;
+        });
+      } else {
+        const totalStock = products.reduce((sum, p) => sum + parseInt(p.stock || 0), 0);
+        const stats = [
+          { label: 'Total Products', val: products.length, icon: 'fa-box-open text-brand-accentLight' },
+          { label: 'Total Stock', val: totalStock, icon: 'fa-cubes text-blue-400' },
+          { label: 'Low Stock', val: products.filter(p => p.stock < 5).length, icon: 'fa-triangle-exclamation text-amber-400' },
+          { label: 'Categories', val: '3', icon: 'fa-tags text-purple-400' }
+        ];
+        stats.forEach((s, i) => {
+          statsContainer.innerHTML += `
+            <div class="bg-brand-card rounded-2xl p-4 md:p-5 border border-white/5 flex flex-col justify-between fade-in" style="animation-delay: ${i*0.05}s">
+              <p class="text-gray-400 text-xs font-medium mb-2">${s.label}</p>
+              <div class="flex justify-between items-end">
+                <h3 class="text-2xl md:text-3xl font-bold text-white">${s.val}</h3>
+                <i class="fa-solid ${s.icon} text-xl md:text-2xl opacity-80"></i>
+              </div>
+            </div>`;
+        });
+      }
+    }
+
+    function renderGrid() {
+      grid.innerHTML = '';
+      const items = currentView === 'orders' ? orders : products;
+      
+      if (items.length === 0) {
+        grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-400 flex flex-col items-center"><i class="fa-solid fa-folder-open text-4xl mb-3 opacity-50"></i><p>No ${currentView} found yet.</p></div>`;
+        return;
+      }
+
+      items.forEach((item, index) => {
+        if (item._id === '.keep') return;
+        const el = document.createElement('div');
+        el.className = `bg-white p-5 rounded-[1.5rem] shadow-sm border border-gray-100 hover:shadow-md transition duration-300 fade-in flex flex-col`;
+        el.style.animationDelay = `${index * 0.05}s`;
+
+        if (currentView === 'orders') {
+          // Render Order Card (matching UI Reference)
+          const name = item.customerName || 'Anonymous';
+          const email = item.customerEmail || '';
+          const status = item.status || 'New';
+          const statusColor = status === 'New' ? 'text-brand-accent bg-brand-accent/10' : 'text-orange-500 bg-orange-100';
+          
+          let itemsHtml = (item.cart || []).slice(0, 3).map(cartItem => `
+            <div class="flex items-center justify-between mb-3 text-sm">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                  <img src="${cartItem.imagePath ? app.getMediaUrl(cartItem.imagePath) : 'https://placehold.co/100x100/f3f4f6/a1a1aa?text=Image'}" class="w-full h-full object-cover">
+                </div>
+                <div>
+                  <p class="font-medium text-gray-800 leading-tight">${cartItem.name}</p>
+                  <p class="text-xs text-gray-400">$${cartItem.price}</p>
+                </div>
+              </div>
+              <span class="font-bold text-gray-800 text-xs bg-gray-50 px-2 py-1 rounded">x${cartItem.quantity}</span>
+            </div>
+          `).join('');
+
+          if (item.cart && item.cart.length > 3) itemsHtml += `<p class="text-xs text-gray-400 text-center mt-2">+${item.cart.length - 3} more items</p>`;
+
+          el.innerHTML = `
+            <div class="flex justify-between items-start mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-brand-accentLight text-white flex items-center justify-center font-bold text-sm">${name.charAt(0)}</div>
+                <div>
+                  <h4 class="font-bold text-sm text-gray-900">${name}</h4>
+                  <p class="text-xs text-gray-400">Order #${item._id.substring(item._id.length-6)}</p>
+                </div>
+              </div>
+              <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${statusColor}">${status}</span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2 mb-4 bg-flat-bg p-3 rounded-xl border border-gray-100">
+              <div>
+                <p class="text-[10px] text-gray-400 uppercase font-semibold">Address</p>
+                <p class="text-xs font-medium text-gray-800 truncate" title="${item.address || 'N/A'}">${item.address || 'N/A'}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-[10px] text-gray-400 uppercase font-semibold">Total Payment</p>
+                <p class="text-sm font-bold text-brand-dark">$${(item.total || 0).toFixed(2)}</p>
+              </div>
+            </div>
+
+            <div class="flex-1 mb-4">${itemsHtml}</div>
+            
+            <button onclick="openMessageModal('${email}', '${item._id.substring(item._id.length-6)}')" class="w-full bg-brand-dark text-white font-medium py-3 rounded-xl text-xs hover:bg-gray-800 transition flex items-center justify-center mt-auto">
+              Message Customer <i class="fa-solid fa-arrow-up-right-from-square ml-2 opacity-70"></i>
+            </button>
+          `;
+        } else {
+          // Render Product Card
+          const imgUrl = item.imagePath ? app.getMediaUrl(item.imagePath) : 'https://placehold.co/300x300/f3f4f6/a1a1aa?text=No+Image';
+          el.innerHTML = `
+            <div class="w-full h-48 rounded-xl overflow-hidden mb-4 bg-gray-50 border border-gray-100 relative group">
+              <img src="${imgUrl}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+              <div class="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-1 rounded text-xs font-bold shadow-sm">
+                $${parseFloat(item.price).toFixed(2)}
+              </div>
+            </div>
+            <div class="flex justify-between items-start mb-2">
+              <h4 class="font-bold text-gray-900">${item.name}</h4>
+            </div>
+            <div class="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
+              <p class="text-xs text-gray-500"><span class="font-bold text-gray-800">${item.stock}</span> in stock</p>
+              <button class="text-xs text-brand-accent hover:underline font-medium">Edit</button>
+            </div>
+          `;
+        }
+        grid.appendChild(el);
+      });
+    }
+
+    
+    // Image Input Handling
+    const imageInput = document.getElementById('p-image');
+    const imagePreview = document.getElementById('p-image-preview');
+    const imagePlaceholder = document.getElementById('p-image-placeholder');
+
+    imageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        selectedImageFile = file;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          imagePreview.src = event.target.result;
+          imagePreview.classList.remove('hidden');
+          imagePlaceholder.style.opacity = '0';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function clearImageSelection() {
+      selectedImageFile = null;
+      imageInput.value = '';
+      imagePreview.src = '';
+      imagePreview.classList.add('hidden');
+      imagePlaceholder.style.opacity = '1';
+    }
+
+    // Add Product Form Submit
+    document.getElementById('product-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const btn = document.getElementById('p-submit-btn');
+      const text = document.getElementById('p-btn-text');
+      const spin = document.getElementById('p-btn-spin');
+      
+      btn.disabled = true;
+      text.textContent = "Saving...";
+      spin.classList.remove('hidden');
+
+      try {
+        const id = `prod_${Date.now()}`;
+        let imagePath = null;
+
+        if (selectedImageFile) {
+          text.textContent = "Uploading Image...";
+          const cleanFileName = selectedImageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          imagePath = `products/${Date.now()}_${cleanFileName}`;
+          await app.uploadMedia(imagePath, selectedImageFile);
+        }
+
+        const data = {
+          name: document.getElementById('p-name').value,
+          price: parseFloat(document.getElementById('p-price').value),
+          stock: parseInt(document.getElementById('p-stock').value),
+          imagePath: imagePath
+        };
+
+        text.textContent = "Saving Database...";
+        await app.set(`products/${id}`, data);
+        
+        closeModals();
+        loadData();
+      } catch (err) {
+        alert("Failed to save product: " + err.message);
+      } finally {
+        btn.disabled = false;
+        text.textContent = "Save Product";
+        spin.classList.add('hidden');
+      }
+    });
+
+    // Send Message Form Submit
+    document.getElementById('message-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const btn = document.getElementById('msg-submit-btn');
+      const text = document.getElementById('msg-btn-text');
+      const spin = document.getElementById('msg-btn-spin');
+      
+      btn.disabled = true;
+      text.textContent = "Sending...";
+      spin.classList.remove('hidden');
+
+      try {
+        const payload = {
+          to: document.getElementById('msg-to').value,
+          subject: document.getElementById('msg-subject').value,
+          html: `<div style="font-family:sans-serif; padding: 20px; color: #333;">
+                  <h2 style="color: #7c3aed;">Thread & Co.</h2>
+                  <p>${document.getElementById('msg-body').value.replace(/\n/g, '<br>')}</p>
+                 </div>`
+        };
+
+        await app.sendMail(payload);
+        alert("Message sent successfully!");
+        closeModals();
+      } catch (err) {
+        alert("Failed to send message: " + err.message);
+      } finally {
+        btn.disabled = false;
+        text.textContent = "Send Message";
+        spin.classList.add('hidden');
+      }
+    });
+
+    // Initial load
+    window.addEventListener('DOMContentLoaded', loadData);
+
+  </script>
+</body>
+</html>
